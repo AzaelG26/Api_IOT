@@ -47,52 +47,64 @@ const loginController = async (req: Request, res: Response): Promise<void> => {
 }
 
 const registerController = async (req: Request, res: Response): Promise<void> => {
-    const {username, phone, email, password} = req.body;
-    if (!username) {
-        res.status(400).json({msg: "username is required"});
-        return;
-    }
-    if (!phone) {
-        res.status(400).json({msg: "phone is required"});
-        return;
-    }
-    if (!email) {
-        res.status(400).json({msg: "email is required"});
-        return;
-    }
-    if (!password) {
-        res.status(400).json({msg: "password is required"});
-        return;
-    }
+    try {
+        const {username, phone, email, password} = req.body;
+        if (!username) {
+            res.status(400).json({msg: "username is required"});
+            return;
+        }
+        if (!phone) {
+            res.status(400).json({msg: "phone is required"});
+            return;
+        }
+        if (!email) {
+            res.status(400).json({msg: "email is required"});
+            return;
+        }
+        if (!password) {
+            res.status(400).json({msg: "password is required"});
+            return;
+        }
 
-    const existingUser = await db.query.users.findFirst({
-        where: (users, {eq}) => eq(users.email, email),
-    });
+        const existingUser = await db.query.users.findFirst({
+            where: (users, {eq}) => eq(users.email, email),
+        });
 
-    if (existingUser) {
-        res.status(401).json({ message: "User already exists" });
-        return;
+        if (existingUser) {
+            res.status(400).json({message: "User already exists"});
+            return;
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const [newUser] = await db.insert(users).values({
+            username: username,
+            phone: phone,
+            email: email,
+            password: hashedPassword,
+            status: true
+        }).returning();
+        if (!newUser) {
+            res.status(401).json({msg: "Error creating user"});
+            return;
+        }
+        res.status(200).json({
+            msg: "User registered successfully",
+            usr: {
+                id: newUser.id,
+                username: newUser.username,
+                phone: newUser.phone,
+                email: newUser.email,
+                status: newUser.status
+            }
+        })
+        console.log("User registered successfully")
+    }catch(err){
+        res.status(401).json({msg: "Server Error"});
+        console.log(`error: ${err}`)
     }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const [newUser] = await db.insert(users).values({
-        username: username,
-        phone: phone,
-        email: email,
-        password: hashedPassword,
-        status: true
-    }).returning();
-    if (!newUser) {
-        res.status(401).json({msg: "Error creating user"});
-        return;
-    }
-    res.status(200).json({
-        msg: "User registered successfully",
-    })
-
-
 }
 
 export {
-    loginController
+    loginController,
+    registerController
 };
